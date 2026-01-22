@@ -1,0 +1,26 @@
+FROM golang:1.21-alpine AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache git
+
+# Copy go mod files
+COPY worker/go.mod worker/go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY worker ./
+
+# Build
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o worker ./main.go
+
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates tzdata
+
+WORKDIR /root/
+
+COPY --from=builder /app/worker .
+
+CMD ["./worker"]

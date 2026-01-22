@@ -1,0 +1,22 @@
+{
+  "name": "mymail",
+  "version": "1.0.0",
+  "description": "Self-hosted SMTP mail server",
+  "private": true,
+  "workspaces": [
+    "api",
+    "ui"
+  ],
+  "scripts": {
+    "dev": "bun run --bun api/src/index.ts",
+    "build": "bun run build:api && bun run build:ui",
+    "build:api": "cd api && bun run build",
+    "build:ui": "cd ui && npm run build",
+    "typecheck": "cd api && bun run typecheck"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.3.3"
+  },
+  "packageManager": "bun@latest"
+}

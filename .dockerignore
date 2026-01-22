@@ -1,0 +1,16 @@
+node_modules
+dist
+build
+.git
+.env
+*.log
+.DS_Store
+.vscode
+.idea
+coverage
+*.db
+*.sqlite
+minio-data
+redis-data
+postgres-data
+drizzle

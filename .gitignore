@@ -20,4 +20,3 @@ tmp/
 *.test
 air_tmp/
 build-errors.log
-*.md

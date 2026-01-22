@@ -1,10 +1,12 @@
 package storage
 
 import (
+	"database/sql"
+	"encoding/json"
 	"time"
 
-	_ "github.com/lib/pq"
 	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
 )
 
 type Postgres struct {
@@ -39,7 +41,7 @@ func (p *Postgres) GetPendingJobs(limit int) ([]QueueJob, error) {
 	          WHERE status = 'pending' 
 	          ORDER BY created_at ASC 
 	          LIMIT $1`
-	
+
 	err := p.db.Select(&jobs, query, limit)
 	return jobs, err
 }
@@ -58,29 +60,56 @@ func (p *Postgres) IncrementJobAttempts(id string) error {
 
 func (p *Postgres) CreateEmail(email *Email) error {
 	query := `INSERT INTO emails (id, mailbox_id, message_id, "from", "to", cc, bcc, subject, text_body, html_body, minio_path, size, received_at, created_at)
-	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+	          VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9, $10, $11, $12, $13, NOW())
+	          ON CONFLICT (id) DO NOTHING
 	          RETURNING id`
-	
-	return p.db.Get(&email.ID, query,
-		email.ID, email.MailboxID, email.MessageID, email.From, email.To, email.CC, email.BCC,
+
+	// Convert []string slices to JSON for JSONB columns
+	// Always marshal to ensure valid JSON (empty array [] for nil)
+	toJSON, _ := json.Marshal(email.To)
+	ccJSON, _ := json.Marshal(email.CC)
+	bccJSON, _ := json.Marshal(email.BCC)
+
+	err := p.db.Get(&email.ID, query,
+		email.ID, email.MailboxID, email.MessageID, email.From, toJSON, ccJSON, bccJSON,
 		email.Subject, email.TextBody, email.HTMLBody, email.MinIOPath, email.Size, email.ReceivedAt)
+
+	// If no rows returned, email already existed (ON CONFLICT DO NOTHING)
+	// This is fine - the email was already processed
+	if err == sql.ErrNoRows {
+		return nil
+	}
+
+	return err
 }
 
 func (p *Postgres) CreateEmailMetadata(metadata *EmailMetadata) error {
 	query := `INSERT INTO email_metadata (id, email_id, headers, attachments, created_at)
-	          VALUES (gen_random_uuid(), $1, $2, $3, NOW())
+	          VALUES (gen_random_uuid(), $1, $2::jsonb, $3::jsonb, NOW())
 	          RETURNING id`
-	
-	return p.db.Get(&metadata.ID, query, metadata.EmailID, metadata.Headers, metadata.Attachments)
+
+	// Marshal to JSON for JSONB columns
+	// Ensure we always have valid JSON (empty object {} for nil map, empty array [] for nil slice)
+	if metadata.Headers == nil {
+		metadata.Headers = make(map[string]interface{})
+	}
+	if metadata.Attachments == nil {
+		metadata.Attachments = []interface{}{}
+	}
+
+	headersJSON, _ := json.Marshal(metadata.Headers)
+	attachmentsJSON, _ := json.Marshal(metadata.Attachments)
+
+	return p.db.Get(&metadata.ID, query, metadata.EmailID, headersJSON, attachmentsJSON)
 }
 
 type QueueJob struct {
-	ID          string    `db:"id"`
-	Type        string    `db:"type"`
-	Payload     string    `db:"payload"`
-	Status      string    `db:"status"`
-	Attempts    int       `db:"attempts"`
-	CreatedAt   time.Time `db:"created_at"`
+	ID          string     `db:"id"`
+	Type        string     `db:"type"`
+	Payload     string     `db:"payload"`
+	Status      string     `db:"status"`
+	Attempts    int        `db:"attempts"`
+	CreatedAt   time.Time  `db:"created_at"`
 	ProcessedAt *time.Time `db:"processed_at"`
 }
 

@@ -85,8 +85,17 @@ func (s *Session) Rcpt(to string, opts *smtp.RcptOptions) error {
 	}
 
 	domain := parts[1]
-	if domain != s.backend.cfg.SMTP.Domain {
-		return fmt.Errorf("invalid domain")
+	// Allow configured domain and mail.localhost for development
+	allowedDomains := []string{s.backend.cfg.SMTP.Domain, "mail.localhost"}
+	validDomain := false
+	for _, allowed := range allowedDomains {
+		if domain == allowed {
+			validDomain = true
+			break
+		}
+	}
+	if !validDomain {
+		return fmt.Errorf("invalid domain: %s", domain)
 	}
 
 	s.to = append(s.to, to)

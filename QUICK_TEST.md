@@ -50,3 +50,6 @@ docker compose -f compose.dev.yml exec postgres psql -U postgres -d mymail -c "D
 - Check if worker is running: `make dev-worker`
 - Check if SMTP server is running: `make dev-smtp`
 - Check queue jobs for errors
+
+
+swaks --to test@jotko.site --from sender@example.com --server smtp.jotko.site --port 2525

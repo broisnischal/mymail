@@ -53,7 +53,7 @@ export const config = {
   dkim: {
     privateKey: process.env.DKIM_PRIVATE_KEY || '',
     selector: process.env.DKIM_SELECTOR || 'default',
-    domain: process.env.DKIM_DOMAIN || process.env.SMTP_DOMAIN || 'mymail.com',
+    domain: process.env.DKIM_DOMAIN || process.env.SMTP_DOMAIN || 'jotko.site',
   },
 
   // Temp Mail

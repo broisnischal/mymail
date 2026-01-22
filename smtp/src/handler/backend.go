@@ -85,8 +85,8 @@ func (s *Session) Rcpt(to string, opts *smtp.RcptOptions) error {
 	}
 
 	domain := parts[1]
-	// Allow configured domain and mail.localhost for development
-	allowedDomains := []string{s.backend.cfg.SMTP.Domain, "mail.localhost"}
+	// Allow configured domain, mail.localhost for development, and jotko.site
+	allowedDomains := []string{s.backend.cfg.SMTP.Domain, "mail.localhost", "jotko.site"}
 	validDomain := false
 	for _, allowed := range allowedDomains {
 		if domain == allowed {

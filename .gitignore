@@ -16,3 +16,8 @@ coverage/
 minio-data/
 redis-data/
 postgres-data/
+tmp/
+*.test
+air_tmp/
+build-errors.log
+*.md

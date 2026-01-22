@@ -27,6 +27,33 @@ A modern, self-hosted email server built with Bun, Go, React, PostgreSQL, Redis,
 
 ## Quick Start
 
+### Development (Hot Reload)
+
+For development with hot reload, see [DEVELOPMENT.md](./DEVELOPMENT.md):
+
+```bash
+# Start infrastructure
+make dev-infra
+
+# Run migrations
+make migrate-dev
+
+# Start services (in separate terminals)
+make dev-api      # API server with hot reload
+make dev-smtp     # SMTP server with hot reload (requires Air)
+make dev-worker   # Worker with hot reload (requires Air)
+make dev-ui       # UI with hot reload
+```
+
+Or use the dev script:
+```bash
+./scripts/dev.sh all    # Start all services
+./scripts/dev.sh api    # Start only API
+./scripts/dev.sh stop   # Stop all services
+```
+
+### Production
+
 ### Prerequisites
 
 - Docker and Docker Compose
@@ -180,3 +207,12 @@ docker service scale mymail_worker=5
 ## License
 
 MIT
+
+
+# Using swaks (install: brew install swaks)
+swaks --to test@mymail.com \
+      --from sender@example.com \
+      --server localhost:2525 \
+      --body "Test email"
+
+telnet localhost 2525

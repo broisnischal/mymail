@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mymail/worker/internal/config"
-	"github.com/mymail/worker/internal/processor"
-	"github.com/mymail/worker/internal/storage"
+	"github.com/mymail/worker/src/config"
+	"github.com/mymail/worker/src/processor"
+	"github.com/mymail/worker/src/storage"
 )
 
 func main() {

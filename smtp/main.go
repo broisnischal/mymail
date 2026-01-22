@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/emersion/go-smtp"
-	"github.com/mymail/smtp/internal/config"
-	"github.com/mymail/smtp/internal/handler"
-	"github.com/mymail/smtp/internal/ratelimit"
-	"github.com/mymail/smtp/internal/storage"
+	"github.com/mymail/smtp/src/config"
+	"github.com/mymail/smtp/src/handler"
+	"github.com/mymail/smtp/src/ratelimit"
+	"github.com/mymail/smtp/src/storage"
 )
 
 func main() {

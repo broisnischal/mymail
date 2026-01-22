@@ -47,7 +47,7 @@ app.post('/register', async (c) => {
     if (error instanceof z.ZodError) {
       return c.json({ error: error.errors }, 400);
     }
-    return c.json({ error: 'Internal server error' }, 500);
+    return c.json({ error: 'src server error' }, 500);
   }
 });
 
@@ -79,7 +79,7 @@ app.post('/login', async (c) => {
     if (error instanceof z.ZodError) {
       return c.json({ error: error.errors }, 400);
     }
-    return c.json({ error: 'Internal server error' }, 500);
+    return c.json({ error: 'src server error' }, 500);
   }
 });
 

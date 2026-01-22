@@ -32,7 +32,7 @@ export const config = {
   smtp: {
     port: parseInt(process.env.SMTP_PORT || '25'),
     host: process.env.SMTP_HOST || '0.0.0.0',
-    domain: process.env.SMTP_DOMAIN || 'mail.localhost',
+    domain: process.env.SMTP_DOMAIN || 'jotko.site',
     maxMessageSize: parseInt(process.env.SMTP_MAX_SIZE || '10485760'), // 10MB
   },
 

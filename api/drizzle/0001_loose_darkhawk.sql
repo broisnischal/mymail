@@ -1,0 +1,1 @@
+ALTER TABLE "email_metadata" ADD COLUMN "created_at" timestamp DEFAULT now() NOT NULL;

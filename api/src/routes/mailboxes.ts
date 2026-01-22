@@ -1,12 +1,12 @@
+import { config } from '@shared/config';
+import { and, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../db';
 import { mailboxes } from '../db/schema';
-import { eq, and } from 'drizzle-orm';
 import { authMiddleware } from '../middleware/auth';
-import { config } from '@shared/config';
-
-const app = new Hono();
+ 
+const app = new Hono<{ Variables: { userId: string } }>();
 
 app.use('/*', authMiddleware);
 

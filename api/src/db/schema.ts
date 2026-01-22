@@ -55,6 +55,7 @@ export const emailMetadata = pgTable('email_metadata', {
     size: number;
     minioPath: string;
   }>>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
   emailIdIdx: index('email_metadata_email_id_idx').on(table.emailId),
 }));

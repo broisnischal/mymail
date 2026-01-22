@@ -86,7 +86,7 @@ dev-smtp:
 		MINIO_SECRET_KEY=minioadmin \
 		MINIO_BUCKET=mails \
 		SMTP_HOST=0.0.0.0 \
-		SMTP_PORT=2525 \
+		SMTP_PORT=25 \
 		SMTP_DOMAIN=mymail.com \
 		SMTP_MAX_SIZE=10485760 \
 		$$AIR_BIN

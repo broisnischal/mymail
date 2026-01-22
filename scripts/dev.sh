@@ -57,13 +57,18 @@ start_api() {
 }
 
 start_smtp() {
-    if ! command -v air &> /dev/null; then
+    # Find air binary
+    AIR_BIN=$(which air 2>/dev/null || echo "$(go env GOPATH)/bin/air")
+    
+    if [ ! -f "$AIR_BIN" ]; then
         echo_warn "Air not found. Installing..."
         go install github.com/air-verse/air@latest
+        AIR_BIN="$(go env GOPATH)/bin/air"
     fi
     
     echo_info "Starting SMTP server..."
     cd smtp
+    PATH="$(go env GOPATH)/bin:$PATH" \
     DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mymail?sslmode=disable \
     REDIS_URL=redis://localhost:6379 \
     MINIO_ENDPOINT=localhost:9000 \
@@ -71,25 +76,30 @@ start_smtp() {
     MINIO_SECRET_KEY=minioadmin \
     MINIO_BUCKET=mails \
     SMTP_HOST=0.0.0.0 \
-    SMTP_PORT=2525 \
+    SMTP_PORT=25 \
     SMTP_DOMAIN=mymail.com \
     SMTP_MAX_SIZE=10485760 \
-    air
+    "$AIR_BIN"
 }
 
 start_worker() {
-    if ! command -v air &> /dev/null; then
+    # Find air binary
+    AIR_BIN=$(which air 2>/dev/null || echo "$(go env GOPATH)/bin/air")
+    
+    if [ ! -f "$AIR_BIN" ]; then
         echo_warn "Air not found. Installing..."
         go install github.com/air-verse/air@latest
+        AIR_BIN="$(go env GOPATH)/bin/air"
     fi
     
     echo_info "Starting worker..."
     cd worker
+    PATH="$(go env GOPATH)/bin:$PATH" \
     DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mymail?sslmode=disable \
     REDIS_URL=redis://localhost:6379 \
     WORKER_CONCURRENCY=10 \
     WORKER_BATCH_SIZE=100 \
-    air
+    "$AIR_BIN"
 }
 
 start_ui() {

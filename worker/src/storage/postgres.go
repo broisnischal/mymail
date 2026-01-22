@@ -134,4 +134,5 @@ type EmailMetadata struct {
 	EmailID     string                 `db:"email_id"`
 	Headers     map[string]interface{} `db:"headers"`
 	Attachments []interface{}          `db:"attachments"`
+	CreatedAt   time.Time              `db:"created_at"`
 }

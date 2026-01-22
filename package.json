@@ -15,8 +15,16 @@
     "typecheck": "cd api && bun run typecheck"
   },
   "devDependencies": {
+    "@rolldown/pluginutils": "^1.0.0-rc.1",
     "@types/bun": "latest",
-    "typescript": "^5.3.3"
+    "@vitejs/plugin-react": "^5.1.2",
+    "fdir": "^6.5.0",
+    "tinyglobby": "^0.2.15",
+    "typescript": "^5.3.3",
+    "vite": "^7.3.1"
   },
-  "packageManager": "bun@latest"
+  "packageManager": "bun@latest",
+  "trustedDependencies": [
+    "es5-ext"
+  ]
 }

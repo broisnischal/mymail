@@ -1,6 +1,50 @@
 version: '3.8'
 
+networks:
+  traefik-network:
+    external: false
+  default:
+    driver: bridge
+
 services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Traefik dashboard (optional, can be removed in production)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/dynamic.yml:/dynamic.yml:ro
+      - traefik-letsencrypt:/letsencrypt
+    networks:
+      - traefik-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.jotko.site`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.middlewares=auth"
+      - "traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH:-admin:$$apr1$$password}"  # Set TRAEFIK_DASHBOARD_AUTH env var
+    command:
+      - --api.dashboard=true
+      - --api.insecure=false
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=traefik-network
+      - --providers.file.filename=/dynamic.yml
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.web.http.redirections.entrypoint.permanent=true
+      - --certificatesresolvers.letsencrypt.acme.email=admin@jotko.site
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      
   postgres:
     image: postgres:16-alpine
     environment:
@@ -60,8 +104,16 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       API_PORT: 3000
       API_HOST: 0.0.0.0
-    ports:
-      - "3000:3000"
+    networks:
+      - default
+      - traefik-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`api.jotko.site`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.api.loadbalancer.server.port=3000"
+      - "traefik.http.routers.api.middlewares=cors"
     depends_on:
       postgres:
         condition: service_healthy
@@ -119,8 +171,31 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.ui
-    ports:
-      - "80:80"
+    networks:
+      - default
+      - traefik-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ui.rule=Host(`jotko.site`) || Host(`www.jotko.site`)"
+      - "traefik.http.routers.ui.entrypoints=websecure"
+      - "traefik.http.routers.ui.tls.certresolver=letsencrypt"
+      - "traefik.http.services.ui.loadbalancer.server.port=80"
+      - "traefik.http.routers.ui.middlewares=security-headers"
+      # API routing - route /api requests from main domain to API service
+      - "traefik.http.routers.ui-api.rule=Host(`jotko.site`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.ui-api.entrypoints=websecure"
+      - "traefik.http.routers.ui-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.ui-api.service=api"
+      - "traefik.http.routers.ui-api.middlewares=strip-api-prefix"
+      - "traefik.http.middlewares.strip-api-prefix.stripprefix.prefixes=/api"
+      # Redirect www to non-www
+      - "traefik.http.routers.ui-www.rule=Host(`www.jotko.site`)"
+      - "traefik.http.routers.ui-www.entrypoints=websecure"
+      - "traefik.http.routers.ui-www.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.ui-www.middlewares=redirect-to-non-www"
+      - "traefik.http.middlewares.redirect-to-non-www.redirectregex.regex=^https://www\\.jotko\\.site/(.*)"
+      - "traefik.http.middlewares.redirect-to-non-www.redirectregex.replacement=https://jotko.site/$${1}"
+      - "traefik.http.middlewares.redirect-to-non-www.redirectregex.permanent=true"
     depends_on:
       - api
     restart: unless-stopped
@@ -129,3 +204,4 @@ volumes:
   postgres-data:
   redis-data:
   minio-data:
+  traefik-letsencrypt:

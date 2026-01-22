@@ -1,0 +1,25 @@
+:80 {
+    root * /usr/share/caddy
+
+    # Handle SPA routing - if file doesn't exist, serve index.html
+    @notFile {
+        not file
+        path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.woff *.woff2 *.ttf *.eot *.map
+    }
+    rewrite @notFile /index.html
+
+    # Serve static files
+    file_server
+
+    # Gzip compression
+    encode gzip
+
+    # Cache static assets (1 year)
+    @static {
+        file
+        path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg *.woff *.woff2 *.ttf *.eot
+    }
+    header @static {
+        Cache-Control "public, max-age=31536000, immutable"
+    }
+}

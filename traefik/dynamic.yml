@@ -1,0 +1,26 @@
+http:
+  middlewares:
+    # Security headers
+    security-headers:
+      headers:
+        browserXssFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        frameDeny: true
+
+    # CORS for API
+    cors:
+      accessControlAllowMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      accessControlAllowOriginList:
+        - "https://jotko.site"
+        - "https://www.jotko.site"
+      accessControlMaxAge: 3600
+      addVaryHeader: true

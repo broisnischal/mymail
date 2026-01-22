@@ -60,6 +60,16 @@ func (m *MinIO) Upload(ctx context.Context, path string, reader io.Reader, size 
 	return err
 }
 
+// UploadStream streams data directly to MinIO without requiring a known size upfront
+// This is used for streaming email uploads where we don't know the total size
+func (m *MinIO) UploadStream(ctx context.Context, path string, reader io.Reader) error {
+	// Use -1 for size to indicate unknown size, MinIO will handle streaming
+	_, err := m.client.PutObject(ctx, m.bucket, path, reader, -1, minio.PutObjectOptions{
+		ContentType: "message/rfc822",
+	})
+	return err
+}
+
 func (m *MinIO) Get(ctx context.Context, path string) (io.Reader, error) {
 	obj, err := m.client.GetObject(ctx, m.bucket, path, minio.GetObjectOptions{})
 	if err != nil {

@@ -20,7 +20,7 @@ export async function generateToken(userId: string): Promise<string> {
 
 export async function verifyToken(token: string): Promise<{ userId: string } | null> {
   try {
-    const payload = await verify(token, config.api.jwtSecret);
+    const payload = await verify(token, config.api.jwtSecret, 'HS256');
     return payload as { userId: string };
   } catch {
     return null;

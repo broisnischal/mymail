@@ -6,7 +6,7 @@ export const config = {
     jwtSecret: process.env.JWT_SECRET || 'change-me-in-production',
     jwtExpiry: process.env.JWT_EXPIRY || '7d',
   },
-  
+   
   // Database
   database: {
     url: process.env.DATABASE_URL || 'postgresql://postgres:postgres@postgres:5432/mymail',

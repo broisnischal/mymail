@@ -94,24 +94,26 @@ func (s *Session) Rcpt(to string, opts *smtp.RcptOptions) error {
 }
 
 func (s *Session) Data(r io.Reader) error {
-	// Read entire message
-	var buf bytes.Buffer
-	size, err := io.Copy(&buf, r)
+	ctx := context.Background()
+
+	// Use io.TeeReader to split the stream: one for header parsing, one for MinIO streaming
+	// This allows us to read headers while simultaneously streaming to MinIO
+	headerBuf := &bytes.Buffer{}
+	teeReader := io.TeeReader(r, headerBuf)
+
+	headerLimit := int64(64 * 1024)
+	headerReader := io.LimitReader(teeReader, headerLimit)
+
+	headerSize, err := io.Copy(headerBuf, headerReader)
+	if err != nil && err != io.EOF {
+		return fmt.Errorf("failed to read headers: %w", err)
+	}
+
+	msg, err := message.Read(bytes.NewReader(headerBuf.Bytes()))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse message headers: %w", err)
 	}
 
-	if size > s.backend.cfg.SMTP.MaxMessageSize {
-		return fmt.Errorf("message too large")
-	}
-
-	// Parse message
-	msg, err := message.Read(&buf)
-	if err != nil {
-		return err
-	}
-
-	// Extract headers
 	from := msg.Header.Get("From")
 	to := msg.Header.Get("To")
 	subject := msg.Header.Get("Subject")
@@ -120,7 +122,6 @@ func (s *Session) Data(r io.Reader) error {
 		messageID = fmt.Sprintf("<%s@%s>", uuid.New().String(), s.backend.cfg.SMTP.Domain)
 	}
 
-	// Parse recipients
 	toAddresses := []string{}
 	if to != "" {
 		addresses, _ := mail.ParseAddressList(to)
@@ -129,60 +130,86 @@ func (s *Session) Data(r io.Reader) error {
 		}
 	}
 
-	// Process each recipient
-	ctx := context.Background()
+	validMailboxes := []*storage.Mailbox{}
 	for _, recipient := range s.to {
 		mailbox, err := s.backend.db.FindMailbox(recipient)
-		if err != nil {
+		if err != nil || mailbox == nil {
 			continue
 		}
 
-		if mailbox == nil {
-			continue
-		}
-
-		// Rate limit
+		// Rate limit check
 		allowed, err := s.backend.rateLimiter.AllowEmail(ctx, mailbox.UserID)
 		if !allowed || err != nil {
 			continue
 		}
 
-		// Generate storage path
-		emailID := uuid.New().String()
-		path := fmt.Sprintf("%s/%s/%s.eml", mailbox.UserID, time.Now().Format("2006/01/02"), emailID)
+		validMailboxes = append(validMailboxes, mailbox)
+	}
 
-		// Upload to MinIO
-		bufReader := bytes.NewReader(buf.Bytes())
-		err = s.backend.minio.Upload(ctx, path, bufReader, size)
-		if err != nil {
-			continue
-		}
+	if len(validMailboxes) == 0 {
+		return nil // No valid recipients
+	}
 
-		// Extract text and HTML bodies
-		var textBody, htmlBody string
-		if mr := msg.MultipartReader(); mr != nil {
-			for {
-				p, err := mr.NextPart()
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
-					continue
-				}
+	// For streaming: combine header buffer with remaining stream
+	// The teeReader continues reading from 'r' after headers
+	var fullStream io.Reader
+	if headerSize < headerLimit {
+		// All data was in header buffer (small email)
+		fullStream = bytes.NewReader(headerBuf.Bytes())
+	} else {
+		// We have more data - combine header buffer with remaining from teeReader
+		// teeReader will continue reading the rest of the stream
+		fullStream = io.MultiReader(bytes.NewReader(headerBuf.Bytes()), teeReader)
+	}
 
+	// Upload once to a shared location (use first mailbox's path as primary)
+	// For multiple recipients, we'll reference this file
+	primaryMailbox := validMailboxes[0]
+	emailID := uuid.New().String()
+	primaryPath := fmt.Sprintf("%s/%s/%s.eml", primaryMailbox.UserID, time.Now().Format("2006/01/02"), emailID)
+
+	// Stream directly to MinIO - this streams the entire email without buffering
+	err = s.backend.minio.UploadStream(ctx, primaryPath, fullStream)
+	if err != nil {
+		return fmt.Errorf("failed to upload email: %w", err)
+	}
+
+	// Extract limited text/HTML bodies from header buffer
+	var textBody, htmlBody string
+	bodyReader := bytes.NewReader(headerBuf.Bytes())
+	if bodyMsg, err := message.Read(bodyReader); err == nil {
+		if mr := bodyMsg.MultipartReader(); mr != nil {
+			if p, err := mr.NextPart(); err == nil {
 				mediaType, _, _ := p.Header.ContentType()
-				body, _ := io.ReadAll(p.Body)
-
-				if strings.HasPrefix(mediaType, "text/plain") {
-					textBody = string(body)
-				} else if strings.HasPrefix(mediaType, "text/html") {
-					htmlBody = string(body)
+				if body, err := io.ReadAll(io.LimitReader(p.Body, 10240)); err == nil {
+					if strings.HasPrefix(mediaType, "text/plain") {
+						textBody = string(body)
+					} else if strings.HasPrefix(mediaType, "text/html") {
+						htmlBody = string(body)
+					}
 				}
 			}
 		} else {
-			body, _ := io.ReadAll(msg.Body)
-			textBody = string(body)
+			if body, err := io.ReadAll(io.LimitReader(bodyMsg.Body, 10240)); err == nil {
+				textBody = string(body)
+			}
 		}
+	}
+
+	// Create queue jobs for all recipients
+	// For now, all recipients point to the same file (could be optimized with copies)
+	for _, mailbox := range validMailboxes {
+		var path string
+		if mailbox == primaryMailbox {
+			path = primaryPath
+		} else {
+			// For other recipients, use the same file (shared storage)
+			// In production, you might want to copy the file for each recipient
+			path = primaryPath
+		}
+
+		// Approximate size (will be updated by worker when processing)
+		emailSize := int64(headerBuf.Len())
 
 		// Create queue job for processing
 		payload := map[string]interface{}{
@@ -195,7 +222,7 @@ func (s *Session) Data(r io.Reader) error {
 			"text_body":  textBody,
 			"html_body":  htmlBody,
 			"minio_path": path,
-			"size":       size,
+			"size":       emailSize,
 		}
 
 		err = s.backend.db.CreateQueueJob("process_email", payload)

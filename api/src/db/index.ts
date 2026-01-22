@@ -6,7 +6,8 @@ import { config } from '@shared/config';
 const client = postgres(config.database.url, {
   max: config.database.maxConnections,
 });
-
+    
 export const db = drizzle(client, { schema });
 
 export type Database = typeof db;
+ 

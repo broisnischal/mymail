@@ -25,7 +25,7 @@ export async function uploadEmail(path: string, content: Buffer): Promise<string
 export async function getEmail(path: string): Promise<Buffer> {
   const stream = await minioClient.getObject(config.minio.bucket, path);
   const chunks: Buffer[] = [];
-  
+
   return new Promise((resolve, reject) => {
     stream.on('data', (chunk) => chunks.push(chunk));
     stream.on('end', () => resolve(Buffer.concat(chunks)));

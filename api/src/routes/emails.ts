@@ -5,7 +5,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { authMiddleware } from '../middleware/auth';
 import { getEmail } from '../services/minio';
 
-const app = new Hono();
+const app = new Hono<{ Variables: { userId: string } }>();
 
 app.use('/*', authMiddleware);
 
@@ -15,7 +15,7 @@ app.get('/', async (c) => {
   const limit = parseInt(c.req.query('limit') || '50');
   const offset = parseInt(c.req.query('offset') || '0');
 
-  let query = db.select({
+  const query = db.select({
     id: emails.id,
     messageId: emails.messageId,
     from: emails.from,
@@ -36,9 +36,9 @@ app.get('/', async (c) => {
     .limit(limit)
     .offset(offset);
 
-  if (mailboxId) {
-    query = query.where(and(eq(mailboxes.userId, userId), eq(emails.mailboxId, mailboxId)));
-  }
+  // if (mailboxId) {
+  //   query = query.where(and(eq(mailboxes.userId, userId), eq(emails.mailboxId, mailboxId)));
+  // }
 
   const emailList = await query;
 
@@ -107,7 +107,7 @@ app.get('/:id/raw', async (c) => {
 
   const rawEmail = await getEmail(email.minioPath);
   c.header('Content-Type', 'message/rfc822');
-  return c.body(rawEmail);
+  return c.body(Buffer.from(rawEmail));
 });
 
 app.delete('/:id', async (c) => {

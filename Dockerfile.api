@@ -1,4 +1,4 @@
-FROM oven/bun:1 AS builder
+FROM oven/bun:latest AS builder
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ COPY shared ./shared
 WORKDIR /app/api
 RUN bun run build
 
-FROM oven/bun:1
+FROM oven/bun:latest
 
 WORKDIR /app
 
